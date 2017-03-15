@@ -1,0 +1,82 @@
+service: kegmeister-cloud
+
+provider:
+  name: aws
+  runtime: nodejs4.3
+
+
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:ListBucket"
+      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+    - Effect: "Allow"
+      Action:
+        - "s3:PutObject"
+      Resource:
+        Fn::Join:
+          - ""
+          - - "arn:aws:s3:::"
+            - "Ref" : "ServerlessDeploymentBucket"
+            - "/*"
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:Query
+      Resource: arn:aws:dynamodb:*:*:table/status
+
+  environment:
+    PUSHER_APP_ID: ${env:PUSHER_APP_ID}
+    PUSHER_APP_KEY: ${env:PUSHER_APP_KEY}
+    PUSHER_APP_SECRET: ${env:PUSHER_APP_SECRET}
+
+functions:
+  temperature-update:
+    handler: src/update-temp.handler
+    events:
+      - http:
+          path: temperature
+          method: put
+          cors: true
+  temperature-get:
+    handler: src/get-temp.handler
+    events:
+      - http:
+          path: temperature
+          method: get
+          cors: true
+  state-update:
+    handler: src/update-state.handler
+    events:
+      - http:
+          path: state
+          method: put
+          cors: true
+  state-get:
+    handler: src/get-state.handler
+    events:
+      - http:
+          path: state
+          method: get
+          cors: true
+
+resources:
+  Resources:
+    statusTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: status
+        AttributeDefinitions:
+          - AttributeName: type
+            AttributeType: S
+          - AttributeName: datetime
+            AttributeType: N
+        KeySchema:
+          - AttributeName: type
+            KeyType: HASH
+          - AttributeName: datetime
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
